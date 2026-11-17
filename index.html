@@ -199,10 +199,23 @@
         align-items: center;
         justify-content: center;
         gap: 6px;
-        font-size: 0.85rem;
+        font-size: 0.88rem;
         color: #ff5c77;
         margin-top: 14px;
-        font-weight: 600;
+        font-weight: 700;
+        background: rgba(255, 92, 119, 0.12);
+        border: 1px solid rgba(255, 92, 119, 0.35);
+        border-radius: 10px;
+        padding: 8px 14px;
+      }
+
+      .gate-error.is-visible {
+        display: flex !important;
+      }
+
+      .gate-input.is-invalid {
+        border-color: #ff5c77 !important;
+        box-shadow: 0 0 0 3px rgba(255, 92, 119, 0.35) !important;
       }
 
       .gate-card.shake {
@@ -316,8 +329,11 @@
 
         const gateEl = document.getElementById('passwordGate');
         const cardEl = document.getElementById('gateCard');
+        const formEl = document.getElementById('gateForm');
         const inputEl = document.getElementById('gatePasswordInput');
         const errorEl = document.getElementById('gateErrorMsg');
+        const errorTextEl = document.getElementById('gateErrorText');
+        const submitBtn = document.getElementById('gateSubmitBtn');
         const relockBtn = document.getElementById('gateRelockBtn');
 
         async function sha256(str) {
@@ -347,9 +363,12 @@
           relockBtn.style.display = 'none';
           if (inputEl) {
             inputEl.value = '';
+            inputEl.classList.remove('is-invalid');
             setTimeout(() => inputEl.focus(), 150);
           }
-          if (errorEl) errorEl.style.display = 'none';
+          if (errorEl) {
+            errorEl.classList.remove('is-visible');
+          }
         }
 
         function unlockGate(animate = true) {
@@ -366,10 +385,19 @@
           }
 
           const normalized = val.toLowerCase();
-          const hash = await sha256(normalized);
 
-          if (hash === TARGET_HASH || normalized === 'nato') {
-            if (errorEl) errorEl.style.display = 'none';
+          // 即時同步檢查 nato，若有其他字串則輔以 SHA-256 比對
+          if (normalized === 'nato') {
+            if (errorEl) errorEl.classList.remove('is-visible');
+            inputEl.classList.remove('is-invalid');
+            unlockGate(true);
+            return;
+          }
+
+          const hash = await sha256(normalized);
+          if (hash === TARGET_HASH) {
+            if (errorEl) errorEl.classList.remove('is-visible');
+            inputEl.classList.remove('is-invalid');
             unlockGate(true);
           } else {
             showError('通行金鑰有誤，請重新輸入');
@@ -377,15 +405,38 @@
         };
 
         function showError(msg) {
-          if (errorEl) {
-            document.getElementById('gateErrorText').textContent = msg;
-            errorEl.style.display = 'flex';
+          if (errorEl && errorTextEl) {
+            errorTextEl.textContent = msg;
+            errorEl.classList.add('is-visible');
+          }
+          if (inputEl) {
+            inputEl.classList.add('is-invalid');
+            inputEl.focus();
+            inputEl.select();
           }
           cardEl.classList.remove('shake');
           void cardEl.offsetWidth;
           cardEl.classList.add('shake');
-          inputEl.focus();
-          inputEl.select();
+        }
+
+        // 輸入時自動清除錯誤狀態
+        inputEl.addEventListener('input', function() {
+          if (errorEl) errorEl.classList.remove('is-visible');
+          inputEl.classList.remove('is-invalid');
+        });
+
+        if (formEl) {
+          formEl.addEventListener('submit', function(e) {
+            e.preventDefault();
+            window.verifyGatePass();
+          });
+        }
+
+        if (submitBtn) {
+          submitBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.verifyGatePass();
+          });
         }
 
         window.toggleGatePasswordVisibility = function() {
